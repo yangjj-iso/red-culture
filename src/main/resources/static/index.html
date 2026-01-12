@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>红色文化资源与教育平台</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <div v-if="ui.loading" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+    <header class="app-header">
+      <div class="app-title">
+        <h1>红色文化资源与教育平台</h1>
+        <div class="app-subtitle">资源管理 · 参观学习 · 数据统计</div>
+      </div>
+      <div class="user-profile">
+        <template v-if="user.token">
+          <span><i class="fa-solid fa-user-circle"></i> {{ user.username }}</span>
+          <button class="btn-login" @click="setTab('profile')">个人中心</button>
+          <button class="btn-logout" @click="logout"><i class="fa-solid fa-right-from-bracket"></i></button>
+        </template>
+        <button v-else class="btn-login" @click="showAuthModal = true">登录 / 注册</button>
+      </div>
+      <nav class="app-nav">
+        <button class="nav-btn" :class="{ active: activeTab === 'home' }" @click="setTab('home')"><i class="fa-solid fa-house"></i> 首页</button>
+        <button class="nav-btn" :class="{ active: activeTab === 'dashboard' }" @click="setTab('dashboard')"><i class="fa-solid fa-chart-pie"></i> 数据统计</button>
+        <button class="nav-btn" :class="{ active: activeTab === 'spots' }" @click="setTab('spots')">红色景点</button>
+        <button class="nav-btn" :class="{ active: activeTab === 'figures' }" @click="setTab('figures')">历史人物</button>
+        <button class="nav-btn" :class="{ active: activeTab === 'events' }" @click="setTab('events')">历史事件</button>
+        <button class="nav-btn" :class="{ active: activeTab === 'resources' }" @click="setTab('resources')">教育资源</button>
+        <button class="nav-btn" :class="{ active: activeTab === 'orgs' }" @click="setTab('orgs')">参观单位</button>
+        <button class="nav-btn" :class="{ active: activeTab === 'visits' }" @click="setTab('visits')">参观活动</button>
+        <button class="nav-btn" :class="{ active: activeTab === 'feedback' }" @click="setTab('feedback')">用户反馈</button>
+        <button class="nav-btn" v-if="user.roles.includes('ROLE_ADMIN')" :class="{ active: activeTab === 'users' }" @click="setTab('users')"><i class="fa-solid fa-users-gear"></i> 用户管理</button>
+      </nav>
+    </header>
+
+    <!-- Auth Modal -->
+    <div class="modal-overlay" v-if="showAuthModal" @click.self="showAuthModal = false">
+      <div class="modal auth-modal-modern">
+        <div class="auth-side-img">
+            <i class="fa-solid fa-star"></i>
+            <h3>Red Culture</h3>
+        </div>
+        <div class="auth-form-container">
+            <div class="modal-header-modern">
+                <h3>{{ authMode === 'login' ? '欢迎回来' : '创建账号' }}</h3>
+                <p>{{ authMode === 'login' ? '登录您的账号以继续' : '注册成为红色文化传承人' }}</p>
+                <button class="close-btn-modern" @click="showAuthModal = false">&times;</button>
+            </div>
+            <div class="modal-body-modern">
+                <div class="input-group-modern">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" v-model.trim="authForm.username" placeholder="用户名" @keyup.enter="handleAuth">
+                </div>
+                <div class="input-group-modern">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" v-model.trim="authForm.password" placeholder="密码" @keyup.enter="handleAuth">
+                </div>
+                <div class="input-group-modern" v-if="authMode === 'register'">
+                    <i class="fa-solid fa-check-double"></i>
+                    <input type="password" v-model.trim="authForm.confirmPassword" placeholder="确认密码" @keyup.enter="handleAuth">
+                </div>
+                 <div class="input-group-modern" v-if="authMode === 'register'">
+                    <i class="fa-solid fa-envelope"></i>
+                    <input type="email" v-model.trim="authForm.email" placeholder="电子邮箱" @keyup.enter="handleAuth">
+                </div>
+                
+                <button class="btn-primary btn-block btn-lg" @click="handleAuth">
+                    {{ authMode === 'login' ? '立即登录' : '注册账号' }}
+                </button>
+
+                <div class="auth-switch">
+                    {{ authMode === 'login' ? '还没有账号？' : '已有账号？' }}
+                    <a href="#" @click.prevent="toggleAuthMode">{{ authMode === 'login' ? '去注册' : '去登录' }}</a>
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <main class="app-main">
+      <div v-if="ui.message" class="toast" :class="ui.type">
+        <div class="toast-text">{{ ui.message }}</div>
+        <button class="toast-close" @click="ui.message = ''">关闭</button>
+      </div>
+
+      <!-- Home / Landing Page -->
+      <section v-if="activeTab === 'home'" class="section-container">
+        <!-- Hero Section -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1>传承红色基因，赓续红色血脉</h1>
+                <p>探索中国革命历史的足迹，感受先烈们的英勇事迹。我们致力于数字化保护与弘扬红色文化资源。</p>
+                <div class="hero-actions">
+                    <button class="btn-primary btn-lg" @click="setTab('spots')">开始探索</button>
+                    <button v-if="!user.token" class="btn-secondary btn-lg" @click="showAuthModal = true">立即加入</button>
+                    <button v-else class="btn-secondary btn-lg" @click="setTab('visits')">预约参观</button>
+                </div>
+            </div>
+            <div class="hero-image">
+                <i class="fa-solid fa-star-of-life"></i>
+            </div>
+        </div>
+
+        <!-- Features Grid -->
+        <div class="features-grid">
+            <div class="feature-card" @click="setTab('spots')">
+                <div class="feature-icon red"><i class="fa-solid fa-map-location-dot"></i></div>
+                <h3>红色地标</h3>
+                <p>收录全国各地的革命遗址与纪念馆，提供详细的地理位置与历史背景。</p>
+            </div>
+            <div class="feature-card" @click="setTab('figures')">
+                <div class="feature-icon gold"><i class="fa-solid fa-user-tie"></i></div>
+                <h3>英雄人物</h3>
+                <p>缅怀革命先烈，记录他们的生平事迹与伟大贡献，传承革命精神。</p>
+            </div>
+            <div class="feature-card" @click="setTab('events')">
+                <div class="feature-icon blue"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                <h3>历史时刻</h3>
+                <p>按时间轴回顾重大历史事件，重温波澜壮阔的革命岁月。</p>
+            </div>
+            <div class="feature-card" @click="setTab('resources')">
+                <div class="feature-icon green"><i class="fa-solid fa-book-open"></i></div>
+                <h3>教育资源</h3>
+                <p>汇集书籍、视频、音频等多媒体资料，打造全方位的红色教育平台。</p>
+            </div>
+        </div>
+
+        <!-- Latest Updates (Mockup) -->
+        <div class="home-section">
+             <div class="section-header-simple">
+                 <h2>最新动态</h2>
+                 <button class="btn-text" @click="setTab('events')">查看更多</button>
+             </div>
+             <div class="updates-grid">
+                 <div class="update-card" v-for="i in 3" :key="i">
+                     <div class="update-img"></div>
+                     <div class="update-content">
+                         <span class="update-date">2023-10-0{{i}}</span>
+                         <h4>红色文化主题展览即将开幕</h4>
+                         <p>为纪念建党100周年，特举办大型红色记忆主题展览...</p>
+                     </div>
+                 </div>
+             </div>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'profile'" class="section-container">
+        <div class="section-header">
+            <div>
+              <h2><i class="fa-solid fa-id-card"></i> 个人中心</h2>
+              <div class="subtitle">管理您的个人信息与账户安全</div>
+            </div>
+        </div>
+
+        <div class="profile-layout">
+            <div class="card profile-sidebar">
+                <div class="profile-avatar-large">
+                    <span>{{ user.username.substring(0,1).toUpperCase() }}</span>
+                </div>
+                <h3 class="profile-name">{{ user.username }}</h3>
+                <div class="profile-roles">
+                    <span v-for="role in user.roles" :key="role" class="badge badge-red">{{ role.replace('ROLE_', '') }}</span>
+                </div>
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <div class="stat-val">{{ user.roles.includes('ROLE_ADMIN') ? '∞' : '0' }}</div>
+                        <div class="stat-label">待办事项</div>
+                    </div>
+                     <div class="stat-item">
+                        <div class="stat-val">-</div>
+                        <div class="stat-label">加入时间</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-user-gear"></i> 基本信息</h3>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label>用户名</label>
+                            <input type="text" :value="user.username" disabled class="input-disabled" />
+                        </div>
+                        <div class="form-field">
+                            <label>用户ID</label>
+                            <input type="text" :value="user.id || '-'" disabled class="input-disabled" />
+                        </div>
+                         <div class="form-field span-2">
+                            <label>当前权限</label>
+                            <div class="tags-container">
+                                <span v-for="role in user.roles" :key="role" class="role-tag">
+                                    <i class="fa-solid fa-shield-halved"></i> {{ role }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                     <div class="card-header">
+                        <h3><i class="fa-solid fa-lock"></i> 安全设置</h3>
+                    </div>
+                    <div class="security-item">
+                        <div class="sec-info">
+                            <h4>登录密码</h4>
+                            <p>建议您定期更改密码以保护账户安全</p>
+                        </div>
+                        <button class="btn-secondary">修改密码</button>
+                    </div>
+                    <div class="divider"></div>
+                     <div class="security-item">
+                        <div class="sec-info">
+                            <h4>账户注销</h4>
+                            <p>注销后将无法恢复您的所有数据，请谨慎操作</p>
+                        </div>
+                        <button class="btn-danger-outline">注销账户</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'dashboard'" class="section-container">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-chart-line"></i> 数据统计</h2>
+            <div class="subtitle">多维度数据分析与查询</div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Card 1: Spot Events -->
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h3><i class="fa-solid fa-magnifying-glass-location"></i> 景点事件查询</h3>
+                </div>
+                <div class="search-box modern">
+                  <input type="text" v-model.trim="dash.spotNameQuery" placeholder="输入景点名称..." />
+                  <button @click="dash.searchSpotEvents"><i class="fa-solid fa-search"></i></button>
+                </div>
+                <div class="result-list-modern" v-if="dash.spotEvents.length">
+                    <div class="list-item-modern" v-for="(item, index) in dash.spotEvents" :key="index">
+                        <div class="item-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                        <div class="item-content">
+                            <div class="item-title">{{ item.eventTitle }}</div>
+                            <div class="item-sub">{{ item.eventDate }} | 关联人物: {{ item.figureName || '无' }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div v-else-if="dash.spotEventsSearched" class="no-data-mini">暂无相关数据</div>
+            </div>
+
+            <!-- Card 2: Visits Count -->
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h3><i class="fa-solid fa-users-viewfinder"></i> 参观团队统计</h3>
+                </div>
+                <div class="search-box modern">
+                  <input type="date" v-model="dash.startDate" />
+                  <span class="sep">-</span>
+                  <input type="date" v-model="dash.endDate" />
+                  <button @click="dash.searchVisits"><i class="fa-solid fa-chart-bar"></i></button>
+                </div>
+                <div class="result-list-modern" v-if="dash.visitsCount.length">
+                    <div class="list-item-modern" v-for="(item, index) in dash.visitsCount" :key="index">
+                        <div class="item-icon red"><i class="fa-solid fa-flag"></i></div>
+                        <div class="item-content">
+                            <div class="item-title">{{ item.spotName }}</div>
+                        </div>
+                        <div class="item-value">{{ item.visitCount }} 团队</div>
+                    </div>
+                </div>
+                <div v-else-if="dash.visitsSearched" class="no-data-mini">暂无相关数据</div>
+            </div>
+
+            <!-- Card 3: Feedback -->
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h3><i class="fa-solid fa-star-half-stroke"></i> 反馈评分查询</h3>
+                </div>
+                <div class="search-box modern">
+                  <select v-model="dash.ratingQuery">
+                    <option value="5">5 星好评</option>
+                    <option value="4">4 星评价</option>
+                    <option value="3">3 星中评</option>
+                    <option value="2">2 星差评</option>
+                    <option value="1">1 星极差</option>
+                  </select>
+                  <button @click="dash.searchFeedback"><i class="fa-solid fa-filter"></i></button>
+                </div>
+                <div class="result-list-modern" v-if="dash.feedbackList.length">
+                    <div class="list-item-modern" v-for="(item, index) in dash.feedbackList" :key="index">
+                        <div class="item-icon yellow"><i class="fa-solid fa-comment-dots"></i></div>
+                        <div class="item-content">
+                            <div class="item-title">{{ item.visitor_name }} <span class="unit-tag">{{ item.unitName }}</span></div>
+                            <div class="item-sub">"{{ item.content }}"</div>
+                        </div>
+                    </div>
+                </div>
+                <div v-else-if="dash.feedbackSearched" class="no-data-mini">暂无相关数据</div>
+            </div>
+
+            <!-- Card 4: Resources -->
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h3><i class="fa-solid fa-book-bookmark"></i> 人物资源查询</h3>
+                </div>
+                <div class="search-box modern">
+                  <input type="text" v-model.trim="dash.figureNameQuery" placeholder="输入人物姓名..." />
+                  <button @click="dash.searchResources"><i class="fa-solid fa-magnifying-glass"></i></button>
+                </div>
+                <div class="result-list-modern" v-if="dash.resourcesList.length">
+                    <div class="list-item-modern" v-for="(item, index) in dash.resourcesList" :key="index">
+                        <div class="item-icon blue"><i class="fa-solid fa-file"></i></div>
+                        <div class="item-content">
+                            <div class="item-title">{{ item.title }}</div>
+                            <div class="item-sub">类型: {{ item.resource_type }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div v-else-if="dash.resourcesSearched" class="no-data-mini">暂无相关数据</div>
+            </div>
+
+            <!-- Card 5: School Visits (Full Width) -->
+            <div class="card dashboard-card full-width">
+                <div class="card-header">
+                    <h3><i class="fa-solid fa-graduation-cap"></i> 学校参观统计 (国家级景点)</h3>
+                    <button class="btn-text" @click="dash.loadSchoolVisits">刷新数据</button>
+                </div>
+                <div class="chart-placeholder" v-if="dash.schoolVisits.length">
+                     <div class="bar-chart">
+                         <div class="bar-item" v-for="(item, index) in dash.schoolVisits" :key="index">
+                             <div class="bar-label">{{ item.spotName }}</div>
+                             <div class="bar-track">
+                                 <div class="bar-fill" :style="{ width: Math.min(item.schoolVisitCount * 10, 100) + '%' }"></div>
+                                 <span class="bar-value">{{ item.schoolVisitCount }}</span>
+                             </div>
+                         </div>
+                     </div>
+                </div>
+                <div v-else class="no-data-mini">点击刷新加载数据</div>
+            </div>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'spots'" class="section-container">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-map-location-dot"></i> 红色景点</h2>
+            <div class="subtitle">探索革命圣地，追寻红色足迹</div>
+          </div>
+          <button class="btn-primary" @click="spots.load"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+        </div>
+
+        <!-- Admin Form Card -->
+        <div class="card form-card" v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+          <div class="card-header">
+            <h3>{{ spots.editingId ? '编辑景点' : '新增景点' }}</h3>
+            <button v-if="spots.editingId" class="btn-text" @click="spots.cancelEdit">取消编辑</button>
+          </div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label>景点名称</label>
+              <input type="text" v-model.trim="spots.form.name" placeholder="请输入景点名称" />
+            </div>
+            <div class="form-field">
+              <label>地址</label>
+              <input type="text" v-model.trim="spots.form.address" placeholder="详细地址" />
+            </div>
+            <div class="form-field">
+              <label>保护级别</label>
+              <select v-model="spots.form.protectionLevel">
+                  <option value="">请选择级别</option>
+                  <option value="国家级">国家级</option>
+                  <option value="省级">省级</option>
+                  <option value="市级">市级</option>
+                  <option value="县级">县级</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>经度</label>
+              <input type="number" step="0.0000001" v-model="spots.form.longitude" />
+            </div>
+            <div class="form-field">
+              <label>纬度</label>
+              <input type="number" step="0.0000001" v-model="spots.form.latitude" />
+            </div>
+            <div class="form-field span-2">
+              <label>历史背景</label>
+              <textarea v-model.trim="spots.form.historyBackground" rows="3" placeholder="简述历史背景..."></textarea>
+            </div>
+          </div>
+          <div class="form-actions right">
+            <button v-if="spots.editingId == null" class="btn-primary" @click="spots.create"><i class="fa-solid fa-plus"></i> 新增景点</button>
+            <button v-else class="btn-primary" @click="spots.update"><i class="fa-solid fa-check"></i> 保存修改</button>
+          </div>
+        </div>
+
+        <!-- Grid Layout for Spots -->
+        <div class="grid-container" v-if="spots.items.length">
+            <div class="grid-card spot-card" v-for="item in spots.items" :key="item.id">
+                <div class="card-img-placeholder">
+                    <i class="fa-solid fa-image"></i>
+                    <span>{{ item.name.substring(0, 1) }}</span>
+                </div>
+                <div class="card-content">
+                    <div class="card-tags">
+                        <span class="badge" :class="item.protectionLevel === '国家级' ? 'badge-red' : 'badge-gray'">
+                            {{ item.protectionLevel || '未分级' }}
+                        </span>
+                    </div>
+                    <h3 class="card-title">{{ item.name }}</h3>
+                    <div class="card-info">
+                        <div class="info-row" title="地址">
+                            <i class="fa-solid fa-location-dot"></i> {{ item.address || '暂无地址' }}
+                        </div>
+                        <div class="info-row desc" title="历史背景">
+                             {{ item.historyBackground || '暂无历史背景描述...' }}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-actions" v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+                    <button class="btn-icon" title="编辑" @click="spots.startEdit(item)"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="btn-icon delete" title="删除" v-if="user.roles.includes('ROLE_ADMIN')" @click="spots.remove(item.id)"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+        </div>
+        <div v-else class="no-data-state">
+            <i class="fa-solid fa-mountain-sun"></i>
+            <p>暂无红色景点数据</p>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'figures'" class="section-container">
+        <div class="section-header">
+            <div>
+              <h2><i class="fa-solid fa-user-tie"></i> 历史人物</h2>
+              <div class="subtitle">缅怀革命先烈，传承红色基因</div>
+            </div>
+            <button class="btn-primary" @click="figures.load"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+        </div>
+
+        <!-- Admin Form Card -->
+        <div class="card form-card" v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+            <!-- Form content similar to spots but for figures -->
+             <div class="card-header">
+                <h3>{{ figures.editingId ? '编辑人物' : '新增人物' }}</h3>
+                <button v-if="figures.editingId" class="btn-text" @click="figures.cancelEdit">取消编辑</button>
+              </div>
+              <div class="form-grid">
+                <div class="form-field">
+                  <label>姓名</label>
+                  <input type="text" v-model.trim="figures.form.name" />
+                </div>
+                <div class="form-field">
+                  <label>籍贯</label>
+                  <input type="text" v-model.trim="figures.form.hometown" />
+                </div>
+                <div class="form-field">
+                  <label>出生日期</label>
+                  <input type="date" v-model="figures.form.birthDate" />
+                </div>
+                <div class="form-field">
+                  <label>逝世日期</label>
+                  <input type="date" v-model="figures.form.deathDate" />
+                </div>
+                <div class="form-field span-2">
+                  <label>生平事迹</label>
+                  <textarea v-model.trim="figures.form.biography" rows="3"></textarea>
+                </div>
+              </div>
+              <div class="form-actions right">
+                <button v-if="figures.editingId == null" class="btn-primary" @click="figures.create"><i class="fa-solid fa-plus"></i> 新增人物</button>
+                <button v-else class="btn-primary" @click="figures.update"><i class="fa-solid fa-check"></i> 保存修改</button>
+              </div>
+        </div>
+
+        <div class="grid-container" v-if="figures.items.length">
+            <div class="grid-card figure-card" v-for="item in figures.items" :key="item.id">
+                <div class="figure-avatar">
+                    <span>{{ item.name.substring(0, 1) }}</span>
+                </div>
+                <div class="card-content centered">
+                    <h3 class="card-title">{{ item.name }}</h3>
+                    <div class="card-meta">
+                        <span v-if="item.birthDate || item.deathDate">
+                            <i class="fa-regular fa-calendar"></i> {{ item.birthDate || '?' }} - {{ item.deathDate || '?' }}
+                        </span>
+                    </div>
+                    <div class="card-info">
+                         <div class="info-row centered">
+                            <i class="fa-solid fa-location-dot"></i> {{ item.hometown || '未知籍贯' }}
+                         </div>
+                    </div>
+                </div>
+                 <div class="card-actions" v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+                    <button class="btn-icon" title="编辑" @click="figures.startEdit(item)"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="btn-icon delete" title="删除" v-if="user.roles.includes('ROLE_ADMIN')" @click="figures.remove(item.id)"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+        </div>
+        <div v-else class="no-data-state">
+            <i class="fa-solid fa-users"></i>
+            <p>暂无历史人物数据</p>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'events'" class="section-container">
+        <!-- Keep events as table or timeline list, but upgraded style -->
+        <div class="section-header">
+            <div>
+              <h2><i class="fa-solid fa-clock-rotate-left"></i> 历史事件</h2>
+              <div class="subtitle">铭记历史时刻，重温峥嵘岁月</div>
+            </div>
+            <button class="btn-primary" @click="events.load"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+        </div>
+        
+        <div class="card form-card" v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+            <!-- Form Content -->
+             <div class="card-header">
+                <h3>{{ events.editingId ? '编辑事件' : '新增事件' }}</h3>
+                <button v-if="events.editingId" class="btn-text" @click="events.cancelEdit">取消编辑</button>
+              </div>
+              <div class="form-grid">
+                  <div class="form-field">
+                    <label>标题</label>
+                    <input type="text" v-model.trim="events.form.title" />
+                  </div>
+                  <div class="form-field">
+                    <label>发生日期</label>
+                    <input type="date" v-model="events.form.eventDate" />
+                  </div>
+                  <div class="form-field">
+                    <label>关联景点</label>
+                    <select v-model.number="events.form.redSpotId">
+                      <option :value="null">未关联</option>
+                      <option v-for="s in options.redSpots" :key="s.id" :value="s.id">{{ s.name }}</option>
+                    </select>
+                  </div>
+                  <div class="form-field span-2">
+                    <label>描述</label>
+                    <textarea v-model.trim="events.form.description" rows="2"></textarea>
+                  </div>
+              </div>
+              <div class="form-actions right">
+                <button v-if="events.editingId == null" class="btn-primary" @click="events.create"><i class="fa-solid fa-plus"></i> 新增事件</button>
+                <button v-else class="btn-primary" @click="events.update"><i class="fa-solid fa-check"></i> 保存修改</button>
+              </div>
+        </div>
+
+        <div class="card list-card" v-if="events.items.length">
+             <div class="list-item" v-for="item in events.items" :key="item.id">
+                 <div class="list-date">
+                     <div class="date-month">{{ item.eventDate ? item.eventDate.substring(5, 7) + '/' + item.eventDate.substring(8, 10) : '--' }}</div>
+                     <div class="date-year">{{ item.eventDate ? item.eventDate.substring(0, 4) : '----' }}</div>
+                 </div>
+                 <div class="list-content">
+                     <h3 class="list-title">{{ item.title }}</h3>
+                     <div class="list-meta" v-if="item.redSpotId">
+                        <i class="fa-solid fa-location-dot"></i> {{ options.redSpotNameById[item.redSpotId] }}
+                     </div>
+                     <div class="list-desc">{{ item.description }}</div>
+                 </div>
+                 <div class="list-actions" v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+                    <button class="btn-icon" @click="events.startEdit(item)"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="btn-icon delete" v-if="user.roles.includes('ROLE_ADMIN')" @click="events.remove(item.id)"><i class="fa-solid fa-trash"></i></button>
+                 </div>
+             </div>
+        </div>
+        <div v-else class="no-data-state">
+            <i class="fa-regular fa-calendar-xmark"></i>
+            <p>暂无历史事件数据</p>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'resources'" class="section-container">
+         <div class="section-header">
+            <div>
+              <h2><i class="fa-solid fa-book-open"></i> 教育资源</h2>
+              <div class="subtitle">丰富的党史资料与多媒体资源</div>
+            </div>
+            <button class="btn-primary" @click="resources.load"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+        </div>
+
+        <!-- Form Card -->
+        <div class="card form-card" v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+             <div class="card-header">
+                <h3>{{ resources.editingId ? '编辑资源' : '新增资源' }}</h3>
+                <button v-if="resources.editingId" class="btn-text" @click="resources.cancelEdit">取消编辑</button>
+              </div>
+              <div class="form-grid">
+                  <div class="form-field">
+                    <label>标题</label>
+                    <input type="text" v-model.trim="resources.form.title" />
+                  </div>
+                  <div class="form-field">
+                    <label>类型</label>
+                    <select v-model="resources.form.resourceType">
+                      <option value="Book">书籍</option>
+                      <option value="Article">文章</option>
+                      <option value="Image">图片</option>
+                      <option value="Video">视频</option>
+                      <option value="Audio">音频</option>
+                    </select>
+                  </div>
+                   <div class="form-field">
+                    <label>发布日期</label>
+                    <input type="date" v-model="resources.form.publishDate" />
+                  </div>
+                  <div class="form-field">
+                    <label>关联景点</label>
+                    <select v-model.number="resources.form.redSpotId">
+                      <option :value="null">未关联</option>
+                      <option v-for="s in options.redSpots" :key="s.id" :value="s.id">{{ s.name }}</option>
+                    </select>
+                  </div>
+                  <div class="form-field span-2">
+                    <label>链接</label>
+                    <input type="text" v-model.trim="resources.form.contentUrl" placeholder="https://..." />
+                  </div>
+                  <div class="form-field span-2">
+                    <label>简介</label>
+                    <textarea v-model.trim="resources.form.description" rows="2"></textarea>
+                  </div>
+              </div>
+              <div class="form-actions right">
+                <button v-if="resources.editingId == null" class="btn-primary" @click="resources.create"><i class="fa-solid fa-plus"></i> 新增资源</button>
+                <button v-else class="btn-primary" @click="resources.update"><i class="fa-solid fa-check"></i> 保存修改</button>
+              </div>
+        </div>
+
+        <div class="grid-container resources-grid" v-if="resources.items.length">
+             <div class="grid-card resource-card" v-for="item in resources.items" :key="item.id">
+                 <div class="res-icon" :class="item.resourceType.toLowerCase()">
+                     <i class="fa-solid fa-book" v-if="item.resourceType === 'Book'"></i>
+                     <i class="fa-solid fa-file-lines" v-else-if="item.resourceType === 'Article'"></i>
+                     <i class="fa-solid fa-image" v-else-if="item.resourceType === 'Image'"></i>
+                     <i class="fa-solid fa-video" v-else-if="item.resourceType === 'Video'"></i>
+                     <i class="fa-solid fa-headphones" v-else-if="item.resourceType === 'Audio'"></i>
+                     <i class="fa-solid fa-box-archive" v-else></i>
+                 </div>
+                 <div class="card-content">
+                     <div class="res-type-badge">{{ item.resourceType }}</div>
+                     <h3 class="card-title">{{ item.title }}</h3>
+                     <div class="card-info">
+                         <div class="info-row desc">{{ item.description }}</div>
+                     </div>
+                     <div class="res-link" v-if="item.contentUrl">
+                         <a :href="item.contentUrl" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> 查看资源</a>
+                     </div>
+                 </div>
+                 <div class="card-actions" v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+                    <button class="btn-icon" @click="resources.startEdit(item)"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="btn-icon delete" v-if="user.roles.includes('ROLE_ADMIN')" @click="resources.remove(item.id)"><i class="fa-solid fa-trash"></i></button>
+                 </div>
+             </div>
+        </div>
+        <div v-else class="no-data-state">
+            <i class="fa-solid fa-layer-group"></i>
+            <p>暂无教育资源数据</p>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'orgs'" class="section-container">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-building"></i> 参观单位</h2>
+            <div class="subtitle">合作单位与团体管理</div>
+          </div>
+          <button class="btn-primary" @click="orgs.load"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+        </div>
+
+        <div class="card form-card" v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+          <div class="card-header">
+            <h3>{{ orgs.editingId ? '编辑单位' : '新增单位' }}</h3>
+            <button v-if="orgs.editingId" class="btn-text" @click="orgs.cancelEdit">取消编辑</button>
+          </div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label>单位名称</label>
+              <input type="text" v-model.trim="orgs.form.name" />
+            </div>
+            <div class="form-field">
+              <label>类型</label>
+              <select v-model="orgs.form.orgType">
+                <option value="School">学校</option>
+                <option value="Government">政府机关</option>
+                <option value="Company">企业</option>
+                <option value="Military">军队</option>
+                <option value="Other">其他</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>联系人</label>
+              <input type="text" v-model.trim="orgs.form.contactPerson" />
+            </div>
+            <div class="form-field">
+              <label>电话</label>
+              <input type="text" v-model.trim="orgs.form.phone" />
+            </div>
+          </div>
+          <div class="form-actions right">
+            <button v-if="orgs.editingId == null" class="btn-primary" @click="orgs.create"><i class="fa-solid fa-plus"></i> 新增单位</button>
+            <button v-else class="btn-primary" @click="orgs.update"><i class="fa-solid fa-check"></i> 保存修改</button>
+          </div>
+        </div>
+
+        <div class="grid-container" v-if="orgs.items.length">
+            <div class="grid-card org-card" v-for="item in orgs.items" :key="item.id">
+                <div class="org-icon-wrapper">
+                    <i class="fa-solid fa-school" v-if="item.orgType === 'School'"></i>
+                    <i class="fa-solid fa-building-columns" v-else-if="item.orgType === 'Government'"></i>
+                    <i class="fa-solid fa-building" v-else-if="item.orgType === 'Company'"></i>
+                    <i class="fa-solid fa-person-military-rifle" v-else-if="item.orgType === 'Military'"></i>
+                    <i class="fa-solid fa-users" v-else></i>
+                </div>
+                <div class="card-content">
+                    <div class="card-tags">
+                        <span class="badge badge-gray">{{ item.orgType }}</span>
+                    </div>
+                    <h3 class="card-title">{{ item.name }}</h3>
+                    <div class="card-info">
+                        <div class="info-row">
+                            <i class="fa-solid fa-user"></i> {{ item.contactPerson || '未填写' }}
+                        </div>
+                        <div class="info-row">
+                            <i class="fa-solid fa-phone"></i> {{ item.phone || '未填写' }}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-actions" v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+                    <button class="btn-icon" @click="orgs.startEdit(item)"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="btn-icon delete" v-if="user.roles.includes('ROLE_ADMIN')" @click="orgs.remove(item.id)"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+        </div>
+        <div v-else class="no-data-state">
+            <i class="fa-solid fa-building-circle-exclamation"></i>
+            <p>暂无参观单位数据</p>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'visits'" class="reservation-container">
+        
+        <!-- Hero / Welcome Section for Visits -->
+        <div class="reservation-hero">
+          <div>
+            <h3>参观预约服务</h3>
+            <div>在线预约红色景点，便捷安排您的参观行程。</div>
+          </div>
+          <button v-if="!user.token" class="btn-primary btn-large" @click="showAuthModal = true">立即登录预约</button>
+          <button v-else-if="!visits.showForm" class="btn-primary btn-large" @click="visits.showForm = true">发起新预约</button>
+        </div>
+
+        <!-- Reservation Form Card -->
+        <div class="reservation-form-card" v-if="user.token && visits.showForm">
+           <div class="card-head">
+             <h2>填写预约申请</h2>
+             <button class="btn-secondary" @click="visits.showForm = false">取消</button>
+           </div>
+           <div class="form-grid">
+             <div class="form-field span-2">
+               <div class="label">活动主题</div>
+               <input type="text" v-model.trim="visits.form.theme" placeholder="例如：党员主题教育活动">
+             </div>
+             <div class="form-field">
+               <div class="label">参观时间</div>
+               <input type="datetime-local" v-model="visits.form.visitTime">
+             </div>
+             <div class="form-field">
+               <div class="label">参与人数</div>
+               <input type="number" v-model.number="visits.form.participantCount" min="1">
+             </div>
+             <div class="form-field">
+               <div class="label">参观景点</div>
+               <select v-model.number="visits.form.redSpotId">
+                 <option :value="null">请选择景点</option>
+                 <option v-for="s in options.redSpots" :key="s.id" :value="s.id">{{ s.name }}</option>
+               </select>
+             </div>
+             <div class="form-field" v-if="user.roles.includes('ROLE_ADMIN')">
+                <div class="label">参观单位 (可选)</div>
+                <select v-model.number="visits.form.organizationId">
+                  <option :value="null">个人/无单位</option>
+                  <option v-for="o in options.orgs" :key="o.id" :value="o.id">{{ o.name }}</option>
+                </select>
+             </div>
+           </div>
+           <div class="form-actions" style="margin-top: 20px;">
+             <button class="btn-primary btn-large" @click="visits.reserve">提交申请</button>
+           </div>
+        </div>
+
+        <!-- Lists Section -->
+        <div class="card">
+          <div class="card-head">
+             <div class="sub-tabs">
+               <button 
+                 class="sub-tab-btn" 
+                 :class="{ active: visits.viewMode === 'my' }" 
+                 @click="visits.switchView('my')"
+                 v-if="!user.roles.includes('ROLE_ADMIN')">
+                 我的预约
+               </button>
+               <button 
+                 class="sub-tab-btn" 
+                 :class="{ active: visits.viewMode === 'all' }" 
+                 @click="visits.switchView('all')"
+                 v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+                 所有预约 (审核)
+               </button>
+             </div>
+             <button class="btn-secondary" @click="visits.refreshList">刷新列表</button>
+          </div>
+
+          <div class="result-table" v-if="visits.items.length">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>主题</th>
+                  <th>时间</th>
+                  <th>人数</th>
+                  <th>景点</th>
+                  <th>状态</th>
+                  <th class="th-actions">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in visits.items" :key="item.id">
+                  <td>{{ item.id }}</td>
+                  <td>{{ item.theme }}</td>
+                  <td>{{ item.visitTime }}</td>
+                  <td>{{ item.participantCount }}</td>
+                  <td>{{ options.redSpotNameById[item.redSpotId] || '-' }}</td>
+                  <td>
+                    <span :class="'status-badge status-' + (item.status ? item.status.toLowerCase() : 'pending')">
+                      {{ item.status || 'Pending' }}
+                    </span>
+                  </td>
+                  <td class="td-actions">
+                    <!-- Admin Audit Actions -->
+                    <div v-if="(user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')) && item.status === 'Pending'">
+                      <button class="btn-success btn-sm" @click="visits.audit(item.id, 'Approved')">通过</button>
+                      <button class="btn-danger btn-sm" @click="visits.audit(item.id, 'Rejected')">拒绝</button>
+                    </div>
+                    <!-- Delete (Admin only) -->
+                    <button
+                      v-if="user.roles.includes('ROLE_ADMIN')"
+                      class="btn-danger btn-sm"
+                      @click="visits.remove(item.id)">
+                      删除
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="no-data">
+            {{ user.token ? '暂无预约记录' : '请先登录查看预约记录' }}
+          </div>
+        </div>
+      </section>
+
+      <section v-if="activeTab === 'feedback'" class="section-container">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-comments"></i> 用户反馈</h2>
+            <div class="subtitle">倾听用户心声，持续改进服务</div>
+          </div>
+          <button class="btn-primary" @click="feedback.load"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+        </div>
+
+        <div class="card form-card" v-if="user.token">
+          <div class="card-header">
+            <h3>{{ feedback.editingId ? '编辑反馈' : '新增反馈' }}</h3>
+            <button v-if="feedback.editingId" class="btn-text" @click="feedback.cancelEdit">取消编辑</button>
+          </div>
+          <div class="form-grid">
+            <div class="form-field">
+              <label>姓名</label>
+              <input type="text" v-model.trim="feedback.form.visitorName" placeholder="匿名可不填" />
+            </div>
+            <div class="form-field">
+              <label>评分</label>
+              <div class="star-rating-input">
+                  <i v-for="n in 5" :key="n" 
+                     class="fa-solid fa-star" 
+                     :class="{ active: n <= feedback.form.rating }"
+                     @click="feedback.form.rating = n"></i>
+              </div>
+            </div>
+            <div class="form-field span-2">
+              <label>关联活动</label>
+              <select v-model.number="feedback.form.visitActivityId">
+                <option :value="null">请选择活动 (可选)</option>
+                <option v-for="v in options.visitActivities" :key="v.id" :value="v.id">
+                  {{ v.theme }} ({{ v.visitTime ? v.visitTime.substring(0,10) : '' }})
+                </option>
+              </select>
+            </div>
+            <div class="form-field span-2">
+              <label>反馈内容</label>
+              <textarea v-model.trim="feedback.form.content" rows="3" placeholder="请输入您的宝贵意见..."></textarea>
+            </div>
+          </div>
+          <div class="form-actions right">
+            <button v-if="feedback.editingId == null" class="btn-primary" @click="feedback.create"><i class="fa-solid fa-paper-plane"></i> 提交反馈</button>
+            <button v-else class="btn-primary" @click="feedback.update"><i class="fa-solid fa-check"></i> 保存修改</button>
+          </div>
+        </div>
+
+        <div class="grid-container feedback-grid" v-if="feedback.items.length">
+            <div class="grid-card feedback-card" v-for="item in feedback.items" :key="item.id">
+                <div class="feedback-avatar">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+                <div class="card-content">
+                    <div class="feedback-meta">
+                        <span class="visitor-name">{{ item.visitorName || '匿名用户' }}</span>
+                        <div class="star-rating-display">
+                            <i v-for="n in 5" :key="n" class="fa-solid fa-star" :class="{ filled: n <= item.rating }"></i>
+                        </div>
+                    </div>
+                    <div class="feedback-text">
+                        "{{ item.content }}"
+                    </div>
+                    <div class="feedback-footer" v-if="item.visitActivityId">
+                        <i class="fa-solid fa-tag"></i> 参加活动: {{ options.visitActivities.find(v => v.id === item.visitActivityId)?.theme || '未知活动' }}
+                    </div>
+                    <div class="feedback-time">
+                        {{ item.feedbackTime ? item.feedbackTime.replace('T', ' ').substring(0, 16) : '' }}
+                    </div>
+                </div>
+                <div class="card-actions" v-if="user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_EDITOR')">
+                    <button class="btn-icon" @click="feedback.startEdit(item)"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="btn-icon delete" v-if="user.roles.includes('ROLE_ADMIN')" @click="feedback.remove(item.id)"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+        </div>
+        <div v-else class="no-data-state">
+            <i class="fa-solid fa-comment-slash"></i>
+            <p>暂无用户反馈数据</p>
+        </div>
+      </section>
+
+      <!-- 用户管理页面 (仅管理员) -->
+      <section v-if="activeTab === 'users'" class="section-container">
+        <div class="section-header">
+            <div>
+              <h2><i class="fa-solid fa-users-gear"></i> 用户管理</h2>
+              <div class="subtitle">管理系统用户和角色权限</div>
+            </div>
+            <button class="btn-primary" @click="users.load"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+        </div>
+
+        <div class="card">
+          <table class="user-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>用户名</th>
+                <th>邮箱</th>
+                <th>当前角色</th>
+                <th>修改角色</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="userItem in users.items" :key="userItem.id">
+                <td>{{ userItem.id }}</td>
+                <td>
+                  <span class="user-name-cell">
+                    <i class="fa-solid fa-user-circle"></i> {{ userItem.username }}
+                  </span>
+                </td>
+                <td>{{ userItem.email || '-' }}</td>
+                <td>
+                  <span class="role-badge" :class="{
+                    'role-admin': userItem.roles && userItem.roles[0] && userItem.roles[0].name === 'ROLE_ADMIN',
+                    'role-editor': userItem.roles && userItem.roles[0] && userItem.roles[0].name === 'ROLE_EDITOR',
+                    'role-user': userItem.roles && userItem.roles[0] && userItem.roles[0].name === 'ROLE_USER'
+                  }">
+                    {{ userItem.roles && userItem.roles[0] ? userItem.roles[0].description : '未知' }}
+                  </span>
+                </td>
+                <td>
+                  <select
+                    v-model="userItem.selectedRole"
+                    @change="users.changeRole(userItem.id, userItem.selectedRole)"
+                    class="role-select"
+                    :disabled="userItem.id === users.currentUserId">
+                    <option value="ROLE_USER">普通用户</option>
+                    <option value="ROLE_EDITOR">内容编辑</option>
+                    <option value="ROLE_ADMIN">系统管理员</option>
+                  </select>
+                </td>
+                <td>
+                  <button
+                    class="btn-icon delete"
+                    v-if="userItem.id !== users.currentUserId"
+                    @click="users.deleteUser(userItem.id)"
+                    title="删除用户">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                  <span v-else class="self-label">当前用户</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="users.items.length === 0" class="no-data-state">
+            <i class="fa-solid fa-users-slash"></i>
+            <p>暂无用户数据</p>
+          </div>
+        </div>
+
+        <div class="card info-card">
+          <h3><i class="fa-solid fa-circle-info"></i> 角色说明</h3>
+          <div class="role-info-grid">
+            <div class="role-info-item">
+              <span class="role-badge role-admin">管理员</span>
+              <span>拥有所有权限，可以管理用户角色、删除数据</span>
+            </div>
+            <div class="role-info-item">
+              <span class="role-badge role-editor">编辑</span>
+              <span>可以新增/编辑内容、审核预约，但不能删除数据和管理用户</span>
+            </div>
+            <div class="role-info-item">
+              <span class="role-badge role-user">普通用户</span>
+              <span>可以查看内容、提交预约和反馈</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="app-footer">
+        <div>© 2026 红色文化资源与教育平台</div>
+      </footer>
+    </main>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
+
